@@ -1,5 +1,6 @@
 # convert form .gen format in to single digit format format
 from operator import add
+from math import log
 def makeGenotype(line,idCol):
     AA=map(float,line[5::3])
     AB=map(float, line[6::3])
@@ -96,9 +97,9 @@ def getSampleNames(scores, sampleFileName, sampleDelim, sampleIDCol, skip=True):
         selfLabels = ["Subj"+str(i+1) for i in range(samplesize)]
         return selfLabels
 
-def getMaf(geno, rsidCol, start, a1):
-    AA=line[0::3]
-    AB=line[1::3]
+def getMaf(geno):
+    AA=geno[0::3]
+    AB=geno[1::3]
     AA2=[x*2 for x in AA]
     A1count=map(add, AA2, AB)
     A1F=sum(A1count)/(float(len(AA2))*2)
@@ -122,6 +123,7 @@ def writePRS(prsTable, outputFile, pvalues, dialect=None):
         for score in prsTable:
             csvwriter.writerow(score)
         print("Successfully wrote scores to "+ ntpath.basename(outputFile))
+
 
 
 
