@@ -1,2 +1,2 @@
 # PRS-on-SPARK
-PRS pipeline for large genotype data, generally imputed data
+Polygenic risk score pipeline for large genotype data, generally imputed data
