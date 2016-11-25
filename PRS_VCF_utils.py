@@ -1,6 +1,7 @@
-# convert form .gen format in to single digit format format
+from __future__ import division
 from operator import add
 from math import log
+
 def makeGenotype(line,idCol):
     AA=map(float,line[5::3])
     AB=map(float, line[6::3])
@@ -10,45 +11,30 @@ def makeGenotype(line,idCol):
 
 bpPair={"C":"G", "G":"C", "A":"T", "T":"A"}
 
-def makeGenotypeCheckRef(line, freqMap, gwasMap, idCol, a1Col, startCol, gwasA1, gwasMAF, bpMap=bpPair):
-    rsid=line[idCol]
-    genosnp = (line[a1Col], line[a1Col+1])
-    gwassnp = (gwasMap[rsid][gwasA1],gwasMap[rsid][gwasA1+1])
-
-    if rsid in gwasMap:
-        if genosnp[0] != bpMap[genosnp[1]]:   # if the SNP is not ambiguous, a.k.a not (A,T) or (C,G) pair
-            if genosnp[0] == gwassnp[0] or bpMap[genosnp[0]]==gwassnp[0]:
-                AA=list(map(float,line[startCol::3]))
-                AB=list(map(float, line[(startCol+1)::3]))
-                AA2=[x*2 for x in AA]
-                genotype=list(map(add, AA2, AB))
-                return ((rsid, line[a1Col], line[a1Col+1]), genotype)
-
-            elif genosnp[1] == gwassnp[0] or bpMap[genosnp[1]]==gwassnp[0]:
-                AA=list(map(float, line[(startCol+2)::3]))
-                AB=list(map(float, line[(startCol+1)::3]))
-                AA2=[x*2 for x in AA]
-                genotype=list(map(add, AA2, AB))
-                return ((rsid, line[a1Col], line[a1Col+1]), genotype)
-            else: pass
-
-        elif genosnp[0] == bpMap[genosnp[1]]:  # if the snp is ambiguous
-            genofreq=freqMap[rsid]
-            majorIdx=genofreq.index(max(genofreq))
-            gwasMajorIdx=1-int(gwasMap[rsid][gwasMAF]>0.5)
-            if majorIdx==gwasMajorIdx:
-                AA=list(map(float, line[startCol::3]))
-            else:
-                AA=list(map(float, line[(startCol+2)::3]))
-
-            AB=list(map(float, line[6::3]))
+def makeGenotypeCheckRef(line, checkMap):
+    rsid=line[0]
+    gen=line[1]
+    try:
+        if checkMap[rsid]=="keep":
+            AA=gen[0::3]
+            AB=gen[1::3]
             AA2=[x*2 for x in AA]
             genotype=list(map(add, AA2, AB))
 
-            return ((rsid, line[a1Col], line[a1Col+1]), genotype)
 
-    else:
-        pass
+        elif checkMap[rsid]=="flip":
+            AA=gen[0::3]
+            AB=gen[1::3]
+            AA2=[x*2 for x in AA]
+            genotype=list(map(add, AA2, AB))
+        else:
+            genotype=[0.0]*(len(gen)/3)
+
+    except KeyError:
+        print("SNP {} was not accounted for in the alignment checking step, discarding this SNP".format(rsid))
+        genotype=[0.0]*(len(gen)/3)
+    finally:
+        return (rsid, genotype)
 
 
 
@@ -74,15 +60,40 @@ def multiplyOdds(genotypeRDDLine, oddsMap2):
     else:
         pass
 
-# calculate PRS from genotype
-def calcPRSFromGeno(genotypeRDD, oddsMap):
-    oddsBC=sc.broadcast(oddsMap)
-    totalcount=genotypeRDD.count()
-    multiplied=genotypeRDD.map(lambda line:multiplyOdds(line, oddsMap))
-    filtered=multiplied.filter(lambda line: line is not None)
-    PRS=multiplied.reduce(lambda a,b: [a[i]+b[i] for i in range(len(a))])
-    normalizedPRS=[x/totalcount for x in PRS]
-    return PRS
+def checkAlignment(line):
+    bpMap={"A":"T", "T":"A", "C":"G", "G":"C"}
+    genoA1=line[0][0][0]
+    genoA2=line[0][0][1]
+    genoA1F=line[0][1]
+    gwasA1=line[1][0][0]
+    gwasA2=line[1][0][1]
+    gwasA1F=line[1][1]
+    flag="keep"
+    try:
+        if genoA1==bpMap[genoA1]:
+            if gwasA1F==".":
+                flag="discard"
+            else:
+                gwasA1F=float(gwasA1F)
+                genoA1Fdiff=genoA1F-0.5
+                gwasA1Fdiff=float(gwasA1F)-0.5
+
+                if abs(genoA1Fdiff)<0.1 or abs(gwasA1Fdiff)<0.1:
+                    flag="discard"
+                else:
+                    if genoA1Fdiff*genoA1Fdiff>0:
+                        flag="keep"
+                    else:
+                        flag="flip"
+        elif genoA1==gwasA2 or genoA1==bpMap[gwasA2]:
+            flag="flip"
+
+    except KeyError:
+        flag="discard"
+
+    return flag
+
+
 
 def getSampleNames(scores, sampleFileName, sampleDelim, sampleIDCol, skip=True):
     samplesize=len(scores)
