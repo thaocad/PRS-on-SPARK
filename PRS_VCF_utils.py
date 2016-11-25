@@ -1,6 +1,11 @@
 from __future__ import division
 from operator import add
 from math import log
+import csv
+import pickle
+import os
+import sys
+
 
 def makeGenotype(line,idCol):
     AA=map(float,line[5::3])
@@ -41,7 +46,7 @@ def makeGenotypeCheckRef(line, checkMap):
 def filterGWASByP(GWASRdd, pcolumn,  pHigh, oddscolumn,idcolumn, pLow=0, logOdds=False):
     GWAS_Pfiltered=GWASRdd.filter(lambda line: (float(line[pcolumn])<=pHigh) and (float(line[pcolumn])>=pLow))
     if logOdds:
-        print("Taking the log of odds-ratios")
+        print("Taking the log of odds ratios")
         GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],log(float(line[oddscolumn]))))
     else:
         print("Using the original values of effect sizes")
@@ -68,7 +73,7 @@ def checkAlignment(line):
     gwasA1=line[1][0][0]
     gwasA2=line[1][0][1]
     gwasA1F=line[1][1]
-    flag="keep"
+
     try:
         if genoA1==bpMap[genoA1]:
             if gwasA1F==".":
@@ -87,26 +92,24 @@ def checkAlignment(line):
                         flag="flip"
         elif genoA1==gwasA2 or genoA1==bpMap[gwasA2]:
             flag="flip"
+        else:
+            flag="keep"
 
     except KeyError:
         flag="discard"
 
-    return flag
+    finally:
+        return flag
 
 
 
-def getSampleNames(scores, sampleFileName, sampleDelim, sampleIDCol, skip=True):
-    samplesize=len(scores)
+def getSampleNames(sampleFileName, sampleDelim, sampleIDCol, skip=0):
+
     with open(sampleFileName, "r") as f:
         subjList=[item.split(sampleDelim) for item in f.read().splitlines()]
         subjNames=[x[sampleIDCol] for x in subjList[skip::]]
-
-    if len(subjNames) == samplesize:
-        return subjNames
-    else:
-        print("Number of Subjects does not equal to number of scores. Using self-made labels")
-        selfLabels = ["Subj"+str(i+1) for i in range(samplesize)]
-        return selfLabels
+        subjNames=[name.strip('"') for name in subjNames]
+    return subjNames
 
 def getMaf(geno):
     AA=geno[0::3]
@@ -125,15 +128,38 @@ def labelPRS(PRSdict, sampleNames):
     scoreTable=[sampleScore for sampleScore in zip(sampleNames, *scorelist)]
     return pList, scoreTable
 
-def writePRS(prsTable, outputFile, pvalues, dialect=None):
-    title=["Subjects"]
-    title.extend(pvalues)
-    with open(outputFile, "w") as f:
-        csvwriter=csv.writer(f, dialect=dialect)
-        csvwriter.writerow(title)
-        for score in prsTable:
-            csvwriter.writerow(score)
-        print("Successfully wrote scores to "+ ntpath.basename(outputFile))
+def writePRS(prsResults, outputFile, samplenames=None, dialect=None):
+    samplesize=len(prsResults.values()[0][1])
+    if not samplenames:
+        print "No sample names provided, generating sample names"
+        samplenames=["Sample"+str(i) for i in range(len(prsResults))]
+
+    outputdata=[['Subjects']+samplenames]
+    for pvalue in prsResults.keys():
+        outputdata.append(["SNP_count_{}".format(pvalue)]+[prsResults[pvalue][0]]*samplesize)
+        outputdata.append(["PRS_{}".format(pvalue)]+prsResults[pvalue][1])
+
+
+    if not os.path.exists(outputFile):
+        print("Output path does not exist, saving results to binary file 'PRSOutput'")
+        with open("PRSOutput", "wb") as f:
+            pickle.dump(prsResults, f)
+    else:
+        try:
+            with open(outputFile, "w") as f:
+                csvwriter=csv.writer(f, dialect=dialect)
+                for row in zip(*outputdata):
+                    csvwriter.writerow(row)
+                print("Successfully wrote scores to "+ os.path.basename(outputFile))
+        except:
+            e = sys.exc_info()[0]
+            print( "<p>Error: %s</p>" % e )
+            print("Data output was unsuccessful.")
+            print("All is not lost, final results saved as binary format in file 'PRSOutput'")
+            with open(os.path.dirname(outputFile)+"/PRSOutput", "wb") as f:
+                pickle.dump(prsResults, f)
+    return outputdata
+
 
 
 
