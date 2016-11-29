@@ -44,7 +44,18 @@ def makeGenotypeCheckRef(line, checkMap):
 
 
 def filterGWASByP(GWASRdd, pcolumn,  pHigh, oddscolumn,idcolumn, pLow=0, logOdds=False):
-    GWAS_Pfiltered=GWASRdd.filter(lambda line: (float(line[pcolumn])<=pHigh) and (float(line[pcolumn])>=pLow))
+    GWAS_Pfiltered=GWASRdd.filter(lambda line: (float(eval(line[pcolumn]))<=pHigh) and (float(line[pcolumn])>=pLow))
+    if logOdds:
+        print("Taking the log of odds ratios")
+        GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],log(float(line[oddscolumn]))))
+    else:
+        print("Using the original values of effect sizes")
+        GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],  float(line[oddscolumn])))
+    GWASoddspair=GWAS_Odds.collectAsMap()
+    return GWASoddspair
+
+def filterGWASByP_DF(GWASdf, pcolumn,  pHigh, oddscolumn,idcolumn, pLow=0, logOdds=False):
+    GWAS_Pfiltered=GWASdf.rdd.filter(lambda line: (float(line[pcolumn])<=pHigh) and (float(line[pcolumn])>=pLow))
     if logOdds:
         print("Taking the log of odds ratios")
         GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],log(float(line[oddscolumn]))))
@@ -69,9 +80,9 @@ def checkAlignmentDF(dataframe, bpMap):
     genoA1=dataframe[1]
     genoA2=dataframe[2]
     genoA1F=dataframe[3]
-    gwasA1=dataframe[4]
-    gwasA2=dataframe[5]
-    gwasA1F=dataframe[6]
+    gwasA1=dataframe[5]
+    gwasA2=dataframe[6]
+    gwasA1F=dataframe[7]
     try:
         if genoA1==bpMap[genoA1]:
             if gwasA1F==".":
@@ -88,13 +99,14 @@ def checkAlignmentDF(dataframe, bpMap):
                         flag="keep"
                     else:
                         flag="flip"
-        elif genoA1==gwasA2 or genoA1==bpMap[gwasA2]:
+        elif genoA2==gwasA1 or genoA2==bpMap[gwasA1]:
             flag="flip"
         else:
             flag="keep"
 
     except KeyError:
         flag="discard"
+        print("Invalid Genotypes for SNP {}".format(snpid))
 
     finally:
         return (snpid,flag)
@@ -124,7 +136,7 @@ def checkAlignment(line):
                         flag="keep"
                     else:
                         flag="flip"
-        elif genoA1==gwasA2 or genoA1==bpMap[gwasA2]:
+        elif genoA2==gwasA1 or genoA2==bpMap[gwasA1]:
             flag="flip"
         else:
             flag="keep"
@@ -174,8 +186,8 @@ def writePRS(prsResults, outputFile, samplenames=None, dialect=None):
         outputdata.append(["PRS_{}".format(pvalue)]+prsResults[pvalue][1])
 
 
-    if not os.path.exists(outputFile):
-        print("Output path does not exist, saving results to binary file 'PRSOutput'")
+    if not os.path.isdir(os.path.dirname(outputFile)):
+        print("Output path does not exist, saving results to binary file 'PRSOutput' under the current folder of this notebook")
         with open("PRSOutput", "wb") as f:
             pickle.dump(prsResults, f)
     else:
