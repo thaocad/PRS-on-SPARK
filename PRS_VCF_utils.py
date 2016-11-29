@@ -64,6 +64,40 @@ def multiplyOdds(genotypeRDDLine, oddsMap2):
             pass
     else:
         pass
+def checkAlignmentDF(dataframe, bpMap):
+    snpid=dataframe[0]
+    genoA1=dataframe[1]
+    genoA2=dataframe[2]
+    genoA1F=dataframe[3]
+    gwasA1=dataframe[4]
+    gwasA2=dataframe[5]
+    gwasA1F=dataframe[6]
+    try:
+        if genoA1==bpMap[genoA1]:
+            if gwasA1F==".":
+                flag="discard"
+            else:
+                gwasA1F=float(gwasA1F)
+                genoA1Fdiff=genoA1F-0.5
+                gwasA1Fdiff=float(gwasA1F)-0.5
+
+                if abs(genoA1Fdiff)<0.1 or abs(gwasA1Fdiff)<0.1:
+                    flag="discard"
+                else:
+                    if genoA1Fdiff*genoA1Fdiff>0:
+                        flag="keep"
+                    else:
+                        flag="flip"
+        elif genoA1==gwasA2 or genoA1==bpMap[gwasA2]:
+            flag="flip"
+        else:
+            flag="keep"
+
+    except KeyError:
+        flag="discard"
+
+    finally:
+        return (snpid,flag)
 
 def checkAlignment(line):
     bpMap={"A":"T", "T":"A", "C":"G", "G":"C"}
@@ -159,37 +193,3 @@ def writePRS(prsResults, outputFile, samplenames=None, dialect=None):
             with open(os.path.dirname(outputFile)+"/PRSOutput", "wb") as f:
                 pickle.dump(prsResults, f)
     return outputdata
-
-
-
-
-
-def prepare(gwasfilePath, genofilePath, prunedsnpPath=None):
-    gwasfile=sc.textFile(gwasfilePath)
-    prunedsnp=sc.textFile(prunedsnpPath)
-    mavangeno=sc.textFile(genofilePath)
-
-    gwastable=gwasfile.map(lambda line: line.split("\t"))
-
-    pruneList=prunedsnp.mapPartitions(buildlist).collect()
-    pruneSet=set(pruneList)
-    pruneLookup=sc.broadcast(pruneSet)
-
-    GWASpruned=gwastable.filter(lambda line: line[0] in pruneLookup.value)  #292232 lines, distinct
-    #GWASprunedsnpID=GWASpruned.map(lambda snp: snp[0]).collect()
-    #GWASprunedsnpset=set(GWASprunedsnpID)
-
-    GWASprunedsnpTop=GWASpruned.map(lambda snp: (snp[0], snp[3])).collectAsMap()
-    print(GWASpruned.take(10))
-
-    genoPruned=mavangeno.filter(lambda line : line.split(' ')[1] in pruneLookup.value).map(lambda x: x.split(" "))
-    GWASTopStrandBC=sc.broadcast(GWASprunedsnpTop)
-    bpMap=sc.broadcast({"C":"G", "G":"C", "A":"T", "T":"A"})
-    MAVANgenotype=genoPruned.map(lambda line: (line[1], makeGenotype(line, GWASTopStrandBC.value, bpMap.value)))
-    try:
-        test=MAVANgenotype.first()
-
-    except:
-        print("Calculation Unccessful")
-
-    return MAVANgenotype, GWASpruned
