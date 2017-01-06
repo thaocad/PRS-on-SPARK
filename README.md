@@ -29,6 +29,19 @@ which gives:
 
 ```
 
+usage: PRS_run.py [-h] [--gwas_id GWAS_ID] [--gwas_p GWAS_P]
+                  [--gwas_or GWAS_OR] [--gwas_a1 GWAS_A1]
+                  [--gwas_maf GWAS_MAF] [--filetype {GEN,VCF}]
+                  [--thresholds THRESHOLDS [THRESHOLDS ...]]
+                  [--GWAS_delim GWAS_DELIM] [--GWAS_no_header] [--log_or]
+                  [--check_ref] [--app_name APP_NAME]
+                  [--sample_file SAMPLE_FILE] [--sample_delim SAMPLE_DELIM]
+                  [--sample_file_ID SAMPLE_FILE_ID [SAMPLE_FILE_ID ...]]
+                  [--sample_file_skip SAMPLE_SKIP] [--no_maf]
+                  GENO GWAS Output
+
+PRS Script Parameters
+
 positional arguments:
   GENO                  Name of the Genotype files, can be a name or path, or
                         name patterns with '*'
@@ -82,25 +95,27 @@ optional arguments:
                         i.e. which row do the labels start. Default is 1,
                         which assumes that the sample files has column names
                         and the labels start on the second line
-  --use_maf             Use this paramter to tell the script to calculate MAF
-                        in the provided propulation and compare it with MAF in
-                        the GWAS, in order to check the reference alleles of
-                        ambiguous SNPs (those whose A1 and A2 are reverese
-                        complements). Not using this will result in ambiguous
-                        SNPs be discarded. Default is not using MAF
-  --log LOG             Specify the location of the log file. Default is no
-                        log file
+  --no_maf              By default, the pipeline calculated the allele
+                        frequency in the genotype population. Use this flag to
+                        tell the script NOT to calculate MAF in the provided
+                        propulation and compare it with MAF in the GWAS, e.g,
+                        when the GWAS does not provide information for allele
+                        frequencies. MAF is needed to check the reference
+                        alleles of ambiguous SNPs (those whose A1 and A2 are
+                        reverese complements). Not using this will result in
+                        ambiguous SNPs be discarded.
 
 
 ```
 
 ### Examples:
-To calculate PRS from a series of .vcf files, while checking the allele allignment between the genotype and the GWAS, and take the log of effect sizes :
+To calculate PRS from a series of .vcf files, while checking the allele allignment between the genotype and the GWAS, and take the log of effect sizes, using p-value thresholds of 0.2, 0.1 , 0.05:
 ```
-spark-submit PRS_run.py "VCF_number*.vcf" pgc.mdd.clump.txt output.csv --sample_file samplefile.csv --sample_file_id 0 --check_ref --log_or --thresholds  0.5 0.2 0.1 0.05 0.01 0.001 0.0001
+spark-submit PRS_run.py "VCF_number*.vcf" pgc.mdd.clump.txt output.csv --sample_file samplefile.csv --sample_file_id 0 --check_ref --log_or --thresholds  0.2 0.1 0.05
 ```
-To calculate PRS from a series of .gen files, without checking allele alignments, using a GWAS with no heade, and taking the log of effect sizes:
+To calculate PRS from a series of .gen files, without checking allele alignments, using a GWAS with no header, and taking the log of effect sizes, using p-value thresholds of 0.2, 0.1 , 0.05:
+
 ```
-spark-submit PRS_run.py "VCF_number*.vcf" pgc.mdd.clump.txt output.csv --filetype GEN --sample_file samplefile.csv --sample_file_id 0 --check_ref --log_or --thresholds  0.5 0.2 0.1 0.05 0.01 0.001 0.0001
+spark-submit PRS_run.py "VCF_number*.vcf" pgc.mdd.clump.txt output.csv --filetype GEN --sample_file samplefile.csv --sample_file_id 0 --GWAS_no_header --log_or --thresholds  0.2 0.1 0.05
 ```
 
