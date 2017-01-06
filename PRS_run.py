@@ -76,9 +76,9 @@ parser.add_argument("--sample_file_ID", action="store", default=[0], type=int, n
 
 parser.add_argument("--sample_file_skip", action="store",default=1, dest="sample_skip", help="Specify how many lines to skip in the sample file, i.e. which row do the labels start. Default is 1, which assumes that the sample files has column names and the labels start on the second line")
 
-parser.add_argument("--use_maf", action="store_true", default=False, dest="use_maf", help="Use this paramter to tell the script to calculate MAF in the provided propulation and compare it with MAF in the GWAS, in order to check the reference alleles of ambiguous SNPs (those whose A1 and A2 are reverese complements).  Not using this will result in ambiguous SNPs be discarded. Default is not using MAF")
+parser.add_argument("--no_maf", action="store_false", default=True, dest="use_maf", help="By default, the pipeline calculated the allele frequency in the genotype population. Use this flag to tell the script NOT to calculate MAF in the provided propulation and compare it with MAF in the GWAS, e.g, when the GWAS does not provide information for allele frequencies. MAF is needed to check the reference alleles of ambiguous SNPs (those whose A1 and A2 are reverese complements).  Not using this will result in ambiguous SNPs be discarded.")
 
-parser.add_argument("--log", action="store", default=None, dest="log", help="Specify the location of the log file. Default is no log file")
+#parser.add_argument("--log", action="store", default=None, dest="log", help="Specify the location of the log file. Default is no log file")
 
 
 results=parser.parse_args()
@@ -151,18 +151,18 @@ sc   = spark.sparkContext
 sc.setLogLevel("WARN")
 log4jLogger = sc._jvm.org.apache.log4j
 LOGGER = log4jLogger.LogManager.getLogger(__name__)
-LOGGER.info("Start Reading Files")
-LOGGER.info("Using these genoytpe files: ")
+LOGGER.warn("Start Reading Files")
+LOGGER.warn("Using these genoytpe files: ")
 
 for filename in genoFileNames[:min(24, len(genoFileNames))]:
     LOGGER.warn(filename)
 if len(genoFileNames)>23:
-    LOGGER.info("and more...")
+    LOGGER.warn("and more...")
 
-LOGGER.info("total of {} files".format(str(len(genoFileNames))))
+LOGGER.warn("total of {} files".format(str(len(genoFileNames))))
 # 1. Load files
 genodata=sc.textFile(genoFileNamePattern)
-LOGGER.info("Using the GWAS file: {}".format(ntpath.basename(gwasFiles)))
+LOGGER.warn("Using the GWAS file: {}".format(ntpath.basename(gwasFiles)))
 gwastable=spark.read.option("header",GWAS_has_header).option("delimiter",GWAS_delim).csv(gwasFiles).cache()
 print("Showing top 5 rows of GWAS file")
 gwastable.show(5)
@@ -198,11 +198,11 @@ if filetype.lower()=="vcf":
 
             flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDFnoMAF(line, bpMap)).collectAsMap()
 
-        LOGGER.info("Generate genotype dosage while taking into account difference in strand alignment")
+        LOGGER.warn("Generate genotype dosage while taking into account difference in strand alignment")
         genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotypeCheckRef(line, checkMap=flagMap)).cache()
 
     else:
-        LOGGER.info("Generate genotype dosage without checking strand alignments")
+        LOGGER.warn("Generate genotype dosage without checking strand alignments")
         genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotype(line, gwasOddsMapCA)).cache()
 
 elif filetype.lower()=="gen":
@@ -219,17 +219,17 @@ elif filetype.lower()=="gen":
             gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1])).toDF(["Snpid_gwas", "GwasA1", "GwasA2"])
             checktable=genoA1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
             flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDFnoMAF(line, bpMap)).collectAsMap()
-        LOGGER.info("Generate genotype dosage while taking into account difference in strand alignment")
+        LOGGER.warn("Generate genotype dosage while taking into account difference in strand alignment")
         genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotypeCheckRef(line, checkMap=flagMap)).cache()
 
     else:
-        LOGGER.info("Generate genotype dosage without checking strand alignments")
+        LOGGER.warn("Generate genotype dosage without checking strand alignments")
         genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotype(line, gwasOddsMapCA)).cache()
 
 
 
 samplesize=int(len(genotable.first()[1])/3)
-LOGGER.info("Detected {} samples" .format(str(samplesize)))
+LOGGER.warn("Detected {} samples" .format(str(samplesize)))
 
 
 
@@ -258,13 +258,13 @@ def calcAll(genotypeRDD, gwasRDD, thresholdlist):
         tic=time()
         gwasFilteredBC=sc.broadcast(PRS_VCF_utils.filterGWASByP_DF(GWASdf=gwasRDD, pcolumn=gwas_p, idcolumn=gwas_id, oddscolumn=gwas_or, pHigh=threshold, logOdds=log_or))
         #gwasFiltered=spark.sql("SELECT snpid, gwas_or_float FROM gwastable WHERE gwas_p_float < {:f}".format(threshold)
-        LOGGER.info("Filtered GWAS at threshold of {}. Time spent : {:3.1f} seconds".format( str(threshold), time()-tic) )
+        LOGGER.warn("Filtered GWAS at threshold of {}. Time spent : {:3.1f} seconds".format( str(threshold), time()-tic) )
         checkpoint=time()
         filteredgenotype=genotypeRDD.filter(lambda line: line[0] in gwasFilteredBC.value)
         if not filteredgenotype.isEmpty():
             prsOther=calcPRSFromGeno(filteredgenotype, gwasFilteredBC.value)
             prsMap[threshold]=prsOther
-            LOGGER.info("Finished calculating PRS at threshold of {}. Time spent : {:3.1f} seconds".format(str(threshold), time()-checkpoint))
+            LOGGER.warn("Finished calculating PRS at threshold of {}. Time spent : {:3.1f} seconds".format(str(threshold), time()-checkpoint))
     return prsMap
 
 prsDict=calcAll(genotypeMax,gwastable, thresholds)
@@ -272,7 +272,7 @@ if sampleFilePath!="NOSAMPLE":
     subjNames=PRS_VCF_utils.getSampleNames(sampleFilePath,sampleFileDelim,sampleFileID, skip=1)
     output=PRS_VCF_utils.writePRS(prsDict,  outputPath, samplenames=subjNames)
 else:
-    LOGGER.info("No sample file input, generating labels for samples.")
+    LOGGER.warn("No sample file input, generating labels for samples.")
     output=PRS_VCF_utils.writePRS(prsDict,  outputPath, samplenames=None)
 
 sc.stop()
