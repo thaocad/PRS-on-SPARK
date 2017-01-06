@@ -19,7 +19,7 @@ The notebooks and scripts require the following to run :
 + Calculate PRS from a genotype file (in .gen or .vcf format) and a GWAS file 
 
 
-# Documentation for Command-line script PRS_run.py
+# Command-line script PRS_run.py
 ## Parameters
 A description of the parameters for the script can be obtained by typing: 
 ```
