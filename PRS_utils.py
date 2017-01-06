@@ -16,30 +16,7 @@ def makeGenotype(line,idCol):
     return (line[idCol], genotype)
 
 
-def makeGenotypeCheckRef(line, checkMap):
-    rsid=line[0]
-    gen=line[1]
-    try:
-        if checkMap[rsid]=="keep":
-            AA=gen[0::3]
-            AB=gen[1::3]
-            AA2=[x*2 for x in AA]
-            genotype=list(map(add, AA2, AB))
 
-
-        elif checkMap[rsid]=="flip":
-            AA=gen[0::3]
-            AB=gen[1::3]
-            AA2=[x*2 for x in AA]
-            genotype=list(map(add, AA2, AB))
-        else:
-            genotype=[0.0]*(len(gen)/3)
-
-    except KeyError:
-        print("SNP {} was not accounted for in the alignment checking step, discarding this SNP".format(rsid))
-        genotype=[0.0]*(len(gen)/3)
-    finally:
-        return (rsid, genotype)
 def getMaf(geno):
     AA=geno[0::3]
     AB=geno[1::3]
@@ -158,10 +135,10 @@ def makeGenotypeCheckRef(line, checkMap, toDF=False):
 def filterGWASByP(GWASRdd, pcolumn,  pHigh, oddscolumn,idcolumn, pLow=0, logOdds=False):
     GWAS_Pfiltered=GWASRdd.filter(lambda line: (float(eval(line[pcolumn]))<=pHigh) and (float(line[pcolumn])>=pLow))
     if logOdds:
-        print("Filtering GWAS, taking the log of odds ratios")
+
         GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],log(float(line[oddscolumn]))))
     else:
-        print("Filtering GWAS, keeping the original values of effect sizes")
+
         GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],  float(line[oddscolumn])))
     GWASoddspair=GWAS_Odds.collectAsMap()
     return GWASoddspair
@@ -169,10 +146,10 @@ def filterGWASByP(GWASRdd, pcolumn,  pHigh, oddscolumn,idcolumn, pLow=0, logOdds
 def filterGWASByP_DF(GWASdf, pcolumn,  pHigh, oddscolumn,idcolumn, pLow=0, logOdds=False):
     GWAS_Pfiltered=GWASdf.rdd.filter(lambda line: (float(line[pcolumn])<=pHigh) and (float(line[pcolumn])>=pLow))
     if logOdds:
-        print("Filtering GWAS, taking the log of odds ratios")
+
         GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],log(float(line[oddscolumn]))))
     else:
-        print("Filtering GWAS, keeping the original values of effect sizes")
+
         GWAS_Odds=GWAS_Pfiltered.map(lambda line: (line[idcolumn],  float(line[oddscolumn])))
     GWASoddspair=GWAS_Odds.collectAsMap()
     return GWASoddspair

@@ -78,6 +78,8 @@ parser.add_argument("--sample_file_skip", action="store",default=1, dest="sample
 
 parser.add_argument("--use_maf", action="store_true", default=False, dest="use_maf", help="Use this paramter to tell the script to calculate MAF in the provided propulation and compare it with MAF in the GWAS, in order to check the reference alleles of ambiguous SNPs (those whose A1 and A2 are reverese complements).  Not using this will result in ambiguous SNPs be discarded. Default is not using MAF")
 
+parser.add_argument("--log", action="store", default=None, dest="log", help="Specify the location of the log file. Default is no log file")
+
 
 results=parser.parse_args()
 
@@ -135,6 +137,7 @@ genoFileNamePattern=results.GENO
 genoFileNames=glob.glob(genoFileNamePattern)
 
 
+
 ##  start spark context
 APP_NAME=results.app_name
 spark=SparkSession.builder.appName(APP_NAME).getOrCreate()
@@ -180,12 +183,10 @@ if filetype.lower()=="vcf":
 
     genotable=genointermediate.map(lambda line: (line[geno_id], list(itertools.chain.from_iterable(line[5::])))).mapValues(lambda geno: [float(x) for x in geno])
     if check_ref:
-        genoAlleles=genointermediate.map(lambda line: (line[geno_id], (line[geno_a1], line[geno_a1+1])))
-
         if use_maf:
             genoA1f=genointermediate.map(lambda line: (line[geno_id], (line[geno_a1], line[geno_a1+1]), [float(x) for x in list(itertools.chain.from_iterable(line[5::]))])).map(lambda line: (line[0], line[1][0], line[1][1], PRS_VCF_utils.getMaf(line[2]))).toDF(["Snpid_geno", "GenoA1", "GenoA2", "GenoA1f"])
             gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1], line[gwas_maf])).toDF(["Snpid_gwas", "GwasA1", "GwasA2", "GwasMaf"])
-            checktable=genoa1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
+            checktable=genoA1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
 
             flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDF(line, bpMap)).collectAsMap()
 
@@ -205,18 +206,25 @@ if filetype.lower()=="vcf":
         genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotype(line, gwasOddsMapCA)).cache()
 
 elif filetype.lower()=="gen":
-    genotable=genodata.map(lambda line: line.split(GENO_delim)).map(lambda line: (line[geno_id], line[geno_start::]))
-    if use_maf:
-        genoA1f=genodata.map(lambda line: line.split(GENO_delim)).map(lambda line: (line[geno_id], line[geno_a1], line[geno_a1+1], PRS_VCF_utils.getMaf(line[geno_start::])))
-        gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1], )).toDF(["Snpid_gwas", "GwasA1", "GwasA2", "GwasMaf"]).toDF(["Snpid_gwas", "GwasA1", "GwasA2", "GwasMaf"])
-        checktable=genoA1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
-        flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDF(line, bpMap)).collectAsMap()
-    else:
-        genoA1f=genodata.map(lambda line: line.split(GENO_delim)).map(lambda line: (line[geno_id], line[geno_a1], line[geno_a1+1]))
-        gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1], )).toDF(["Snpid_gwas", "GwasA1", "GwasA2", "GwasMaf"]).toDF(["Snpid_gwas", "GwasA1", "GwasA2"])
-        checktable=genoa1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
-        flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDFnoMAF(line, bpMap)).collectAsMap()
+    genotable=genodata.map(lambda line: line.split(GENO_delim)).filter(lambda line: line[geno_id] in gwasOddsMapMaxCA).map(lambda line: (line[geno_id], line[geno_start::])).mapValues(lambda geno: [float(call) for call in geno])
 
+    if check_ref:
+        if use_maf:
+            genoA1f=genodata.map(lambda line: line.split(GENO_delim)).map(lambda line: (line[geno_id], line[geno_a1], line[geno_a1+1], PRS_VCF_utils.getMaf(line[geno_start::]))).toDF(["Snpid_geno", "GenoA1", "GenoA2"])
+            gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1], line[gwas_maf])).toDF(["Snpid_gwas", "GwasA1", "GwasA2", "GwasMaf"])
+            checktable=genoA1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
+            flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDF(line, bpMap)).collectAsMap()
+        else:
+            genoA1f=genodata.map(lambda line: line.split(GENO_delim)).map(lambda line: (line[geno_id], line[geno_a1], line[geno_a1+1])).toDF(["Snpid_geno", "GenoA1", "GenoA2"])
+            gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1])).toDF(["Snpid_gwas", "GwasA1", "GwasA2"])
+            checktable=genoA1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
+            flagMap=checktable.rdd.map(lambda line: PRS_VCF_utils.checkAlignmentDFnoMAF(line, bpMap)).collectAsMap()
+        LOGGER.info("Generate genotype dosage while taking into account difference in strand alignment")
+        genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotypeCheckRef(line, checkMap=flagMap)).cache()
+
+    else:
+        LOGGER.info("Generate genotype dosage without checking strand alignments")
+        genotypeMax=genotable.map(lambda line: PRS_VCF_utils.makeGenotype(line, gwasOddsMapCA)).cache()
 
 
 
@@ -227,10 +235,7 @@ LOGGER.info("Detected {} samples" .format(str(samplesize)))
 
 
 #genoa1f.map(lambda line:"\t".join([line[0], "\t".join(line[1]), str(line[2])])).saveAsTextFile("../MOMS_info03_maf")
-
-
 # Calculate PRS at the sepcified thresholds
-
 
 def calcPRSFromGeno(genotypeRDD, oddsMap):
     totalcount=genotypeRDD.count()
