@@ -93,3 +93,14 @@ optional arguments:
 
 
 ```
+
+### Examples:
+To calculate PRS from a series of .vcf files, while checking the allele allignment between the genotype and the GWAS, and take the log of effect sizes :
+```
+spark-submit PRS_run.py "VCF_number*.vcf" pgc.mdd.clump.txt output.csv --sample_file samplefile.csv --sample_file_id 0 --check_ref --log_or --thresholds  0.5 0.2 0.1 0.05 0.01 0.001 0.0001
+```
+To calculate PRS from a series of .gen files, without checking allele alignments, using a GWAS with no heade, and taking the log of effect sizes:
+```
+spark-submit PRS_run.py "VCF_number*.vcf" pgc.mdd.clump.txt output.csv --filetype GEN --sample_file samplefile.csv --sample_file_id 0 --check_ref --log_or --thresholds  0.5 0.2 0.1 0.05 0.01 0.001 0.0001
+```
+
