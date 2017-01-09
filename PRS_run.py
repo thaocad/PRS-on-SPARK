@@ -325,7 +325,26 @@ def writePRS(prsResults, outputFile, samplenames=None, dialect=None):
         print("Data output was unsuccessful.")
         print("All is not lost, final results saved as binary format in file 'PRSOutput.pk'")
         with open(os.path.dirname(outputFile)+"/PRSOutput.pk", "wb") as f:
-            pickle.dump(prsResults, f)
+            pickle.dump(outputdata, f)
+    return outputdata
+
+def writeSNPlog(snpid, outputFile, maxT, dialect=None):
+    outputdata=[]
+    for pvalue in snpid.keys():
+        outputdata.append([str(pvalue)]+snpid[pvalue]+[""]*(maxT-len(snpid[pvalue])))
+    try:
+        with open(outputFile, "w") as f:
+            csvwriter=csv.writer(f, dialect=dialect)
+            for row in zip(*outputdata):
+                csvwriter.writerow(row)
+            print("Successfully wrote scores to "+ os.path.basename(outputFile))
+    except:
+        e = sys.exc_info()[0]
+        print( "<p>Error: %s</p>" % e )
+        print("Data output was unsuccessful.")
+        print("All is not lost, final results saved as binary format in file 'SNPlog.pk'")
+        with open(os.path.join(os.path.dirname(outputFile),"SNPlog.pk"), "wb") as f:
+            pickle.dump(outputdata, f)
     return outputdata
 
 ## The following function is for checking allignment in genotype RDDs
@@ -412,13 +431,15 @@ if __name__=="__main__":
 
     parser.add_argument("--no_maf", action="store_false", default=True, dest="use_maf", help="By default, the pipeline calculated the allele frequency in the genotype population. Use this flag to tell the script NOT to calculate MAF in the provided propulation and compare it with MAF in the GWAS, e.g, when the GWAS does not provide information for allele frequencies. MAF is needed to check the reference alleles of ambiguous SNPs (those whose A1 and A2 are reverese complements).  Not using this will result in ambiguous SNPs be discarded.")
 
-    #parser.add_argument("--log", action="store", default=None, dest="log", help="Specify the location of the log file. Default is no log file")
+    parser.add_argument("--snp_log", action="store", default=None, dest="snp_log", help="Specify the path for a log file that records the SNPs that are used at each threshold. Default is no log")
 
     results=parser.parse_args()
 
     # type of files, VCF or GEN
     filetype=results.filetype
 
+    # log file
+    snp_log=results.snp_log
     ## Setting parameters
     gwas_id=results.gwas_id    # column of SNP ID
     gwas_p=results.gwas_p     # column of P value
@@ -506,12 +527,13 @@ if __name__=="__main__":
     gwasOddsMapMax=filterGWASByP_DF(GWASdf=gwastable, pcolumn=gwas_p, idcolumn=gwas_id, oddscolumn=gwas_or, pHigh=maxThreshold, logOdds=log_or)
     gwasOddsMapMaxCA=sc.broadcast(gwasOddsMapMax).value  # Broadcast the map
 
-
     # ### 2. Initial processing
 
     # at this step, the genotypes are already filtered to keep only the ones in 'gwasOddsMapMax'
     bpMap={"A":"T", "T":"A", "C":"G", "G":"C"}
+    tic=time()
     if filetype.lower()=="vcf":
+
         genointermediate=genodata.filter(lambda line: ("#" not in line)).map(lambda line: line.split(GENO_delim)).filter(lambda line: line[geno_id] in gwasOddsMapMaxCA).map(lambda line: line[0:5]+[chunk.split(":")[3] for chunk in line[geno_start::]]).map(lambda line: line[0:5]+[triplet.split(",") for triplet in line[5::]])
 
         genotable=genointermediate.map(lambda line: (line[geno_id], list(itertools.chain.from_iterable(line[5::])))).mapValues(lambda geno: [float(x) for x in geno])
@@ -531,11 +553,11 @@ if __name__=="__main__":
 
                 flagMap=checktable.rdd.map(lambda line: checkAlignmentDFnoMAF(line, bpMap)).collectAsMap()
 
-            LOGGER.warn("Generate genotype dosage while taking into account difference in strand alignment")
+            LOGGER.warn("Generating genotype dosage while taking into account difference in strand alignment")
             genotypeMax=genotable.map(lambda line: makeGenotypeCheckRef(line, checkMap=flagMap)).cache()
 
         else:
-            LOGGER.warn("Generate genotype dosage without checking strand alignments")
+            LOGGER.warn("Generating genotype dosage without checking strand alignments")
             genotypeMax=genotable.map(lambda line: makeGenotype(line, gwasOddsMapCA)).cache()
 
     elif filetype.lower()=="gen":
@@ -552,22 +574,19 @@ if __name__=="__main__":
                 gwasA1f=gwastable.rdd.map(lambda line:(line[gwas_id], line[gwas_a1], line[gwas_a1+1])).toDF(["Snpid_gwas", "GwasA1", "GwasA2"])
                 checktable=genoA1f.join(gwasA1f, genoA1f["Snpid_geno"]==gwasA1f["Snpid_gwas"], "inner").cache()
                 flagMap=checktable.rdd.map(lambda line: checkAlignmentDFnoMAF(line, bpMap)).collectAsMap()
-            LOGGER.warn("Generate genotype dosage while taking into account difference in strand alignment")
+            LOGGER.warn("Generating genotype dosage while taking into account difference in strand alignment")
             genotypeMax=genotable.map(lambda line: makeGenotypeCheckRef(line, checkMap=flagMap)).cache()
 
         else:
-            LOGGER.warn("Generate genotype dosage without checking strand alignments")
+            LOGGER.warn("Generating genotype dosage without checking strand alignments")
             genotypeMax=genotable.map(lambda line: makeGenotype(line, gwasOddsMapCA)).cache()
 
-
-
+    LOGGER.warn("Dosage call generated in {} seconds".format(time()-tic) )
     samplesize=int(len(genotable.first()[1])/3)
     LOGGER.warn("Detected {} samples" .format(str(samplesize)))
 
-
-
-
     #genoa1f.map(lambda line:"\t".join([line[0], "\t".join(line[1]), str(line[2])])).saveAsTextFile("../MOMS_info03_maf")
+
     # Calculate PRS at the sepcified thresholds
 
     def calcPRSFromGeno(genotypeRDD, oddsMap):
@@ -578,23 +597,30 @@ if __name__=="__main__":
         return (totalcount,PRS)
 
 
-
     def calcAll(genotypeRDD, gwasRDD, thresholdlist):
         prsMap={}
         if len(thresholdlist)>1:
             thresholdNoMaxSorted=sorted(thresholdlist, reverse=True)
         else:
             thresholdNoMaxSorted=thresholdlist
+        thresholdmax=max(thresholdlist)
+        if snp_log:
+            with open(snp_log, 'w') as f:
+                f.write("SNPs used in PRS calculation:")
         start=time()
-
+        snpids={}
         for threshold in thresholdNoMaxSorted:
             tic=time()
             gwasFilteredBC=sc.broadcast(filterGWASByP_DF(GWASdf=gwasRDD, pcolumn=gwas_p, idcolumn=gwas_id, oddscolumn=gwas_or, pHigh=threshold, logOdds=log_or))
+
             #gwasFiltered=spark.sql("SELECT snpid, gwas_or_float FROM gwastable WHERE gwas_p_float < {:f}".format(threshold)
-            LOGGER.warn("Filtered GWAS at threshold of {}. Time spent : {:3.1f} seconds".format( str(threshold), time()-tic) )
+            LOGGER.warn("Filtered GWAS at threshold of {}. Time spent : {:3.1f} seconds".format(str(threshold), time()-tic))
             checkpoint=time()
             filteredgenotype=genotypeRDD.filter(lambda line: line[0] in gwasFilteredBC.value)
+
             if not filteredgenotype.isEmpty():
+                if snp_log:
+                    snpids[threshold]=filteredgenotype.map(lambda line:line[0]).collect()
                 prsOther=calcPRSFromGeno(filteredgenotype, gwasFilteredBC.value)
                 prsMap[threshold]=prsOther
                 LOGGER.warn("Finished calculating PRS at threshold of {}. Time spent : {:3.1f} seconds".format(str(threshold), time()-checkpoint))
@@ -607,5 +633,6 @@ if __name__=="__main__":
     else:
         LOGGER.warn("No sample file detected, generating labels for samples.")
         output=writePRS(prsDict,  outputPath, samplenames=None)
-
+    if snp_log:
+        logoutput=writeSNPlog(snpids, snp_log, thresholdmax)
     sc.stop()
