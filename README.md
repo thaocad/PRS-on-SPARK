@@ -15,9 +15,12 @@ The notebooks and scripts require the following to run :
 + spark-2.0.0 +
 + Pyhon 2.7
 
+Instruction of installing Spark can be found [here](https://www.santoshsrinivas.com/installing-apache-spark-on-ubuntu-16-04/)
+
 ## What the pipeline does:
 + Calculate PRS from a genotype file (in .gen or .vcf format) and a GWAS file 
-
+## What it cannot do :
++ Performs quality control of genotype data
 
 ## Command-line script PRS_run.py
 ### Parameters
