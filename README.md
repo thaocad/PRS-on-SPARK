@@ -20,6 +20,7 @@ Instruction of installing Apache Spark can be found [here](https://www.santoshsr
 ## What the pipeline does:
 + Calculate PRS from a genotype file (in .gen or .vcf format) and a GWAS file
 + Correct the strand alignment descrpencies between genotype  and GWAS data. 
+
 ## What it cannot do :
 + Performs quality control of genotype data
 
