@@ -8,19 +8,56 @@ To clone the repository, use
 git clone https://github.com/seriousNel/PRS-on-SPARK.git
 ```
 
-## Requirements
+## Software Requirements
 
 The notebooks and scripts require the following to run :
-
 + spark-2.0.0 +
 + Pyhon 2.7
 
+Instruction of installing Apache Spark can be found [here](https://www.santoshsrinivas.com/installing-apache-spark-on-ubuntu-16-04/)
+
+
 ## What the pipeline does:
-+ Calculate PRS from a genotype file (in .gen or .vcf format) and a GWAS file 
++ Calculate PRS from a genotype file (in .gen or .vcf format) and a GWAS file
++ Correct the strand alignment descrpencies between genotype  and GWAS data. 
+## What it cannot do :
++ Performs quality control of genotype data
 
+## Default format requirement:
+### GWAS
+By default, the GWAS should have the same format as that of a GWAS file obtained from Psychiatric Genomics Consortium (PGC). 
 
-## Command-line script PRS_run.py
+|     snpid|hg18chr|      bp| a1| a2|    or|    se|  pval| info|ngt|    CEUaf |
+|----------|-------|--------|---|---|------|------|------|-----|---|----------|
+| rs2241028|      2|74612442|  A|  G|0.9991|0.0255|0.9723|0.968|  0| 0.0688073|
+| rs6707302|      2|74614930|  T|  C|0.9762|0.0179|0.1779|0.931|  0|   0.87963|
+|rs13428246|      2|74619088|  T|  C|0.9945|0.2186|0.9799|0.405|  0|0.00458716|
+|  rs715407|      2|74619201|  T|  G| 1.025| 0.018|0.1734|0.947|  0|  0.119266|
+|rs12104595|      2|74621725|  T|  C|0.9777|0.1524|0.8823|0.918|  0|0.00458716|
+
+You can change your GWAS to the same format, or use optional parameter flags to let the script know about the format you are using. More details below.
+
+### .gen file
+from (http://www.shapeit.fr/)[http://www.shapeit.fr/pages/m02_formats/gensample.html] :
+A .gen file is a SPACE delimited file. Each line corresponds to a single SNP. The first 5 columns are:
+Chromosome number [integer]
+SNP ID [string]
+SNP physical position (bp) [integer]
+First allele [string]
+Second allele [string]
+
+### .vcf file 
+This is a default format for the 
+
+## Running command-line script PRS_run.py
 ### Parameters
+
+There are three required positional parameters: 
+1. path to the genotype file(s)
+2. path to the GWAS file
+3. path to the output file
+
+
 A description of the parameters for the script can be obtained by typing: 
 ```
 python PRS_run.py
