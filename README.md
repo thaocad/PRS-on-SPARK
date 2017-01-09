@@ -39,7 +39,7 @@ By default, the GWAS should have the same format as that of a GWAS file obtained
 You can change your GWAS to the same format, or use optional parameter flags to let the script know about the format you are using. More details below.
 
 ### .gen file
-from (http://www.shapeit.fr/)[http://www.shapeit.fr/pages/m02_formats/gensample.html] :
+from [www.shapeit.fr](http://www.shapeit.fr/pages/m02_formats/gensample.html) :
 A .gen file is a SPACE delimited file. Each line corresponds to a single SNP. The first 5 columns are:
 Chromosome number [integer]
 SNP ID [string]
@@ -48,7 +48,7 @@ First allele [string]
 Second allele [string]
 
 ### .vcf file 
-This is a default format for the 
+This is a default format for the genotype data returned from Sanger Institute. Details about the format can be found [here](http://www.internationalgenome.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-40/) 
 
 ## Running command-line script PRS_run.py
 ### Parameters
