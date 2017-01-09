@@ -1,0 +1,21 @@
+#!/bin/bash
+#PBS -A vvp-220-aa
+#PBS -N PRS_pre11
+#PBS -l nodes=1:ppn=8
+#PBS -l walltime=2:00:00
+#PBS -o PRS_serotonin_pre11.out
+#PBS -o PRS_serotonin_pre11.err
+
+cd /home/nyao111/PRS_imputed/Serotonin/PRS-on-SPARK
+
+module load apps/spark/2.0.0
+module load apps/python/2.7.10
+
+# Launch Spark cluster
+start-all.sh
+
+# Submit SparkPi.jar application to the Spark cluster
+spark-submit --master spark://$HOSTNAME:7077\
+                     PRS_run.py  "/scratch/vvp-220-aa/KIDS_08info/KIDS_*08.vcf" /home/nyao111/PRS_imputed/Serotonin/Pre11GWAS.txt /home/nyao111/PRS_imputed/Serotonin/PRS_serotonin_pre11.txt --sample_file /home/nyao111/SampleSheets/MAVAN345_unimputed_KIDS_orderedSamples.csv --check_ref --log_or --thresholds 1.0 0.5 0.2 0.1 0.05 0.01 0.001
+# Stop Spark cluster
+stop-all.sh
