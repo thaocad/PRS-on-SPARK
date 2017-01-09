@@ -24,7 +24,7 @@ Instruction of installing Apache Spark can be found [here](https://www.santoshsr
 ## What it cannot do :
 + Performs quality control of genotype data
 
-## Default format requirement:
+## Default format :
 ### GWAS
 By default, the GWAS should have the same format as that of a GWAS file obtained from Psychiatric Genomics Consortium (PGC). 
 
@@ -49,6 +49,9 @@ Second allele [string]
 
 ### .vcf file 
 This is a default format for the genotype data returned from Sanger Institute. Details about the format can be found [here](http://www.internationalgenome.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-40/) 
+
+### Output file
+By default, the output format of PRS results and SNP logs is csv. 
 
 ## Running command-line script PRS_run.py
 ### Parameters
