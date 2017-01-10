@@ -145,6 +145,8 @@ optional arguments:
                         alleles of ambiguous SNPs (those whose A1 and A2 are
                         reverese complements). Not using this will result in
                         ambiguous SNPs be discarded.
+  --snp_log SNP_LOG     Specify the path for a log file that records the SNPs
+                        that are used at each threshold. Default is no log
 
 
 ```
