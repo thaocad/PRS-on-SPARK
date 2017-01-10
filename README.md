@@ -66,22 +66,9 @@ A description of the parameters for the script can be obtained by typing:
 ```
 python PRS_run.py
 ```
-which gives: 
+Some important parameters are:
 
 ```
-
-usage: PRS_run.py [-h] [--gwas_id GWAS_ID] [--gwas_p GWAS_P]
-                  [--gwas_or GWAS_OR] [--gwas_a1 GWAS_A1]
-                  [--gwas_maf GWAS_MAF] [--filetype {GEN,VCF}]
-                  [--thresholds THRESHOLDS [THRESHOLDS ...]]
-                  [--GWAS_delim GWAS_DELIM] [--GWAS_no_header] [--log_or]
-                  [--check_ref] [--app_name APP_NAME]
-                  [--sample_file SAMPLE_FILE] [--sample_delim SAMPLE_DELIM]
-                  [--sample_file_ID SAMPLE_FILE_ID [SAMPLE_FILE_ID ...]]
-                  [--sample_file_skip SAMPLE_SKIP] [--no_maf]
-                  GENO GWAS Output
-
-PRS Script Parameters
 
 positional arguments:
   GENO                  Name of the Genotype files, can be a name or path, or
@@ -90,18 +77,7 @@ positional arguments:
   Output                The path and name for the output file
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --gwas_id GWAS_ID     Column number in your GWAS that contains SNP ID, with
-                        first column being 0, default is 0
-  --gwas_p GWAS_P       Column number in your GWAS that contains p-value, with
-                        first column being 0, default is 7
-  --gwas_or GWAS_OR     Column number in your GWAS that contains odds-
-                        ratio/beta, with first column being 0, default is 5
-  --gwas_a1 GWAS_A1     Column number in your GWAS that contains allele A1,
-                        with first column being 0, default is 3. Allele A2 is
-                        assumed to be at column [gwas_a1+1]
-  --gwas_maf GWAS_MAF   Column number in your GWAS that contains frequency of
-                        A1, with first column being 0, default is 10.
+ 
   --filetype {GEN,VCF}  The type of genotype file used as inputm choose
                         between VCF and GEN, default is VCF
   --thresholds THRESHOLDS [THRESHOLDS ...]
@@ -109,8 +85,7 @@ optional arguments:
                         used from the GWAS. Specifying the p-values simply by
                         input one after another. default is [0.5, 0.2, 0.1,
                         0.05, 0.01, 0.001, 0.0001]
-  --GWAS_delim GWAS_DELIM
-                        Delimtier of the GWAS file, default is tab-delimiter
+                        
   --GWAS_no_header      Adding this parameter signals that there is no headers
                         for the GWAS. The default is to assume that GWAS has
                         column names
@@ -119,23 +94,15 @@ optional arguments:
   --check_ref           Adding this option tells the script to theck reference
                         allele when determining genoypte calls. Default is not
                         checking
-  --app_name APP_NAME   Give your spark application a name. Default is PRS.
+
   --sample_file SAMPLE_FILE
                         path and name of the file that contain the sample
                         labels. It is assumed that the sample labels are
                         already in the same order as in the genotype file.
   --sample_delim SAMPLE_DELIM
                         Delimiter of the sample file. Default is comma
-  --sample_file_ID SAMPLE_FILE_ID [SAMPLE_FILE_ID ...]
-                        Specify which columns in the sample file are used as
-                        labels. Can use one integer to specify one column, or
-                        multiple integers to specify multiple columns. Default
-                        is the first column
-  --sample_file_skip SAMPLE_SKIP
-                        Specify how many lines to skip in the sample file,
-                        i.e. which row do the labels start. Default is 1,
-                        which assumes that the sample files has column names
-                        and the labels start on the second line
+
+
   --no_maf              By default, the pipeline calculated the allele
                         frequency in the genotype population. Use this flag to
                         tell the script NOT to calculate MAF in the provided
