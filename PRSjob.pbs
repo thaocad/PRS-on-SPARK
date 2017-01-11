@@ -1,0 +1,23 @@
+#!/bin/bash
+#PBS -A 123-456-bb
+#PBS -N jobName
+#PBS -l nodes=3:ppn=8
+#PBS -l walltime=2:00:00
+#PBS -o output.out
+#PBS -o errors.err
+
+cd "${PBS_O_WORKDIR}"
+
+module load apps/spark/2.0.0
+module load apps/python/2.7.10
+
+# Launch Spark cluster
+start-all.sh
+
+# Submit SparkPi.jar application to the Spark cluster
+spark-submit --master spark://$HOSTNAME:7077 \
+                     PRS_run.py  "vcfNumber*.vcf" GWAS.txt output.txt --sample_file \
+                     SampleSheet.csv --check_ref --log_or \
+                     --thresholds 1.0 0.5 0.2 0.1 0.05 0.01 0.001
+# Stop Spark cluster
+stop-all.sh
